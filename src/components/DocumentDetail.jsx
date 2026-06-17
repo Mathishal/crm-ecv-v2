@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 import { generateDocumentPDF } from "../lib/pdfGenerator";
 import { formatEUR, formatDate } from "../lib/format";
 import { computeLineTotals } from "../lib/billingEngine";
+import DocumentForm from "./DocumentForm";
 
 const DS = [{value:"draft",label:"Brouillon"},{value:"sent",label:"Envoyé"},{value:"accepted",label:"Accepté"},{value:"refused",label:"Refusé"},{value:"expired",label:"Expiré"}];
 const FS = [{value:"draft",label:"Brouillon"},{value:"sent",label:"Envoyée"},{value:"paid",label:"Payée"},{value:"overdue",label:"En retard"},{value:"cancelled",label:"Annulée"}];
@@ -16,6 +17,9 @@ export default function DocumentDetail({ documentType, documentId, onBack, onCon
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const table = documentType === "devis" ? "devis" : "factures";
   const lineTable = documentType === "devis" ? "devis_lines" : "facture_lines";
@@ -43,6 +47,13 @@ export default function DocumentDetail({ documentType, documentId, onBack, onCon
     await supabase.from(table).update({ [field]: value, ...extra }).eq("id", documentId);
     await load();
     setUpdating(false);
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    await supabase.from(lineTable).delete().eq(fkCol, documentId);
+    await supabase.from(table).delete().eq("id", documentId);
+    onBack();
   }
 
   async function convertToFacture() {
@@ -82,12 +93,22 @@ export default function DocumentDetail({ documentType, documentId, onBack, onCon
   if (loading) return <p style={{textAlign:"center",padding:"40px",color:"var(--g5)"}}>Chargement…</p>;
   if (!doc) return <p>Introuvable.</p>;
 
+  if (editing) {
+    return (
+      <DocumentForm
+        documentType={documentType}
+        existingDocument={{ ...doc, lines }}
+        onSaved={() => { setEditing(false); load(); }}
+      />
+    );
+  }
+
   return (
     <div>
       <button className="doc-detail__back" onClick={onBack}>← Retour</button>
 
       <div className="dcard">
-        <div style={{marginBottom:"12px"}}>
+        <div style={{marginBottom:"14px"}}>
           <div className="dcard__num">{doc.number}</div>
           <div className="dcard__client">{client?.name}</div>
           {client?.company_name && <div className="dcard__co">{client.company_name}</div>}
@@ -97,8 +118,13 @@ export default function DocumentDetail({ documentType, documentId, onBack, onCon
           <button className="btn-pdf" onClick={downloadPDF} disabled={generatingPdf} style={{flex:1}}>
             {generatingPdf ? "Génération…" : "⬇ PDF"}
           </button>
+          <button onClick={() => setEditing(true)} style={{flex:1,background:"var(--b)"}}>
+            ✏️ Modifier
+          </button>
           {isDevis && doc.status === "accepted" && (
-            <button className="btn-conv" onClick={convertToFacture} style={{flex:1}}>→ Facture</button>
+            <button className="btn-conv" onClick={convertToFacture} style={{flex:"1 1 100%"}}>
+              → Convertir en Facture
+            </button>
           )}
         </div>
       </div>
@@ -128,7 +154,7 @@ export default function DocumentDetail({ documentType, documentId, onBack, onCon
         {lines.map((line, i) => {
           const t = computeLineTotals(line);
           return (
-            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"12px 0",borderBottom: i < lines.length-1 ? "1px solid var(--g3)" : "none",gap:"12px"}}>
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"12px 0",borderBottom:i<lines.length-1?"1px solid var(--g3)":"none",gap:"12px"}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:"14px",fontWeight:700,color:"var(--g9)",marginBottom:"3px"}}>{line.description}</div>
                 <div style={{fontSize:"12px",color:"var(--g5)"}}>{Number(line.quantity).toLocaleString("fr-FR")} × {formatEUR(line.unit_price)} HT · TVA {line.vat_rate}%{Number(line.line_discount)>0?` · Remise ${formatEUR(line.line_discount)}`:""}</div>
@@ -151,11 +177,32 @@ export default function DocumentDetail({ documentType, documentId, onBack, onCon
       </div>
 
       {doc.notes && (
-        <div style={{background:"#fff",borderRadius:"16px",border:"1px solid var(--g4)",boxShadow:"var(--sh)",padding:"16px"}}>
+        <div style={{background:"#fff",borderRadius:"16px",border:"1px solid var(--g4)",boxShadow:"var(--sh)",padding:"16px",marginBottom:"12px"}}>
           <div style={{fontSize:"11px",fontWeight:700,color:"var(--g5)",textTransform:"uppercase",letterSpacing:".5px",marginBottom:"8px"}}>Notes</div>
           <p style={{fontSize:"14px",color:"var(--g6)"}}>{doc.notes}</p>
         </div>
       )}
+
+      {/* Suppression */}
+      <div style={{marginTop:"8px"}}>
+        {!confirmDelete ? (
+          <button onClick={() => setConfirmDelete(true)} style={{width:"100%",background:"var(--rl)",color:"var(--r)",boxShadow:"none",padding:"12px",fontSize:"13px"}}>
+            🗑 Supprimer ce {isDevis ? "devis" : "cette facture"}
+          </button>
+        ) : (
+          <div style={{background:"var(--rl)",borderRadius:"12px",padding:"16px",textAlign:"center"}}>
+            <p style={{color:"var(--r)",fontWeight:700,marginBottom:"12px"}}>Confirmer la suppression ? Cette action est irréversible.</p>
+            <div style={{display:"flex",gap:"10px"}}>
+              <button onClick={handleDelete} disabled={deleting} style={{flex:1,background:"var(--r)",padding:"12px"}}>
+                {deleting ? "Suppression…" : "Oui, supprimer"}
+              </button>
+              <button onClick={() => setConfirmDelete(false)} style={{flex:1,background:"var(--g3)",color:"var(--g6)",boxShadow:"none",padding:"12px"}}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
