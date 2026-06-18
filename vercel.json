@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/create-user.cjs": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/create-user", "destination": "/api/create-user.cjs" }
+  ]
+}
