@@ -66,7 +66,8 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {activeTab === "dashboard" && <DashboardPage isAdmin={isAdmin} />}
+        {activeTab === "dashboard" && <DashboardPage isAdmin={isAdmin}
+        profile={profile} />}
 
         {activeTab === "clients" && (view.mode === "list"
           ? <ClientList onEdit={openForm} onCreateNew={() => openForm(null)} />
@@ -105,6 +106,7 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={changeTab}
         isAdmin={isAdmin}
+        profile={profile}
         menuOpen={menuOpen}
         onMenuToggle={setMenuOpen}
       />
