@@ -124,6 +124,7 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
     const prefix = type === "devis" ? "DEV" : "FAC";
     const table = type === "devis" ? "devis" : "factures";
     const { data, error } = await supabase.rpc("next_document_number", { prefix, tbl: table });
+    console.log("RPC result:", data, "error:", error);
     if (error || !data) {
       const year = new Date().getFullYear();
       const { data: rows } = await supabase.from(table).select("number").like("number", prefix + "-" + year + "-%").order("number", { ascending: false }).limit(1);
