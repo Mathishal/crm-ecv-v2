@@ -14,7 +14,10 @@ const ALL_TABS = [
 ];
 
 export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggle, menuOpen }) {
-  const tabs = ALL_TABS.filter(t => !t.adminOnly || isAdmin);
+  const tabs = ALL_TABS.filter(t => {
+    if (!t.adminOnly) return true;
+    return isAdmin === true;
+  });
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -27,7 +30,6 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
 
   return (
     <>
-      {/* Overlay */}
       {menuOpen && (
         <div
           onClick={() => onMenuToggle(false)}
@@ -35,7 +37,6 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
         />
       )}
 
-      {/* Sidebar */}
       <div style={{
         position:"fixed",left:0,top:0,bottom:0,width:"280px",
         background:"#fff",zIndex:50,
@@ -50,10 +51,10 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
             <div style={{fontSize:"15px",fontWeight:700,color:"#1a2330"}}>CRM El Camino</div>
             <div style={{fontSize:"12px",color:"#94a3b8"}}>Menu principal</div>
           </div>
-          <button onClick={() => onMenuToggle(false)} style={{background:"none",color:"#94a3b8",boxShadow:"none",padding:"4px",fontSize:"20px",lineHeight:1}}>✕</button>
+          <button onClick={() => onMenuToggle(false)} style={{background:"none",color:"#94a3b8",boxShadow:"none",padding:"4px",fontSize:"20px",lineHeight:1}}>x</button>
         </div>
 
-        <div style={{flex:1,overflowY:"auto",padding:"10px 10px"}}>
+        <div style={{flex:1,overflowY:"auto",padding:"10px"}}>
           {tabs.map(tab => (
             <button
               key={tab.key}
@@ -78,7 +79,7 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
         <div style={{padding:"12px 10px",borderTop:"1px solid #e2e8f0"}}>
           <button onClick={handleLogout} style={{width:"100%",display:"flex",alignItems:"center",gap:"14px",padding:"12px 14px",borderRadius:"10px",background:"#fdf1f1",color:"#d63b3b",fontWeight:600,fontSize:"14px",boxShadow:"none",justifyContent:"flex-start"}}>
             <span style={{fontSize:"20px",width:"28px",textAlign:"center"}}>🚪</span>
-            Déconnexion
+            Deconnexion
           </button>
         </div>
       </div>
