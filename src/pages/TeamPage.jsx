@@ -25,7 +25,7 @@ export default function TeamPage() {
     setCreateSuccess(null);
     setCreating(true);
     try {
-      const res = await fetch("/api/create-user", {
+      const res = await fetch("/api/create-user.cjs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
