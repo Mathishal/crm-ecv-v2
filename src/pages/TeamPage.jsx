@@ -14,7 +14,8 @@ export default function TeamPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from("profiles").select("*, clients(count), devis(count), factures(count)").order("full_name");
+    const { data, error } = await supabase.from("profiles").select("*").order("full_name");
+    if (error) console.error(error);
     setProfiles(data || []);
     setLoading(false);
   }
@@ -32,7 +33,7 @@ export default function TeamPage() {
       });
       const result = await res.json();
       if (result.error) throw new Error(result.error);
-      setCreateSuccess(`✓ Compte créé pour ${form.email}`);
+      setCreateSuccess("Compte créé pour " + form.email);
       setForm({ full_name: "", email: "", password: "", role: "commercial" });
       setShowForm(false);
       load();
@@ -44,7 +45,8 @@ export default function TeamPage() {
   }
 
   async function toggleActive(p) {
-    await supabase.from("profiles").update({ active: !p.active }).eq("id", p.id);
+    const newActive = p.active ? false : true;
+    await supabase.from("profiles").update({ active: newActive }).eq("id", p.id);
     load();
   }
 
@@ -62,14 +64,21 @@ export default function TeamPage() {
         <button onClick={() => setShowForm(true)} style={{fontSize:"13px",padding:"9px 16px"}}>+ Ajouter</button>
       </div>
 
-      {createSuccess && <div style={{background:"var(--gl)",color:"var(--gm)",padding:"10px 14px",borderRadius:"8px",marginBottom:"14px",fontSize:"13px",fontWeight:600}}>{createSuccess}</div>}
+      {createSuccess && (
+        <div style={{background:"var(--gl)",color:"var(--gm)",padding:"10px 14px",borderRadius:"8px",marginBottom:"14px",fontSize:"13px",fontWeight:600}}>
+          {createSuccess}
+        </div>
+      )}
 
-      {/* Modal création */}
       {showForm && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:"16px 16px 0 0",padding:"24px 20px",width:"100%",maxWidth:"480px"}}>
             <h3 style={{fontSize:"18px",fontWeight:800,marginBottom:"20px"}}>Ajouter un commercial</h3>
-            {createError && <div style={{background:"var(--rl)",color:"var(--r)",padding:"10px 14px",borderRadius:"8px",marginBottom:"14px",fontSize:"13px",fontWeight:600}}>{createError}</div>}
+            {createError && (
+              <div style={{background:"var(--rl)",color:"var(--r)",padding:"10px 14px",borderRadius:"8px",marginBottom:"14px",fontSize:"13px",fontWeight:600}}>
+                {createError}
+              </div>
+            )}
             <form onSubmit={handleCreate}>
               <label>Nom complet *
                 <input type="text" value={form.full_name} onChange={e => setForm({...form, full_name:e.target.value})} placeholder="Ex: Jean Dupont" required />
@@ -78,9 +87,9 @@ export default function TeamPage() {
                 <input type="email" value={form.email} onChange={e => setForm({...form, email:e.target.value})} placeholder="Ex: jean@elcamino.com" required />
               </label>
               <label>Mot de passe *
-                <input type="password" value={form.password} onChange={e => setForm({...form, password:e.target.value})} minLength={8} required />
+                <input type="password" value={form.password} onChange={e => setForm({...form, password:e.target.value})} minLength={6} required />
               </label>
-              <label>Rôle *
+              <label>Role
                 <select value={form.role} onChange={e => setForm({...form, role:e.target.value})}>
                   <option value="commercial">Commercial</option>
                   <option value="admin">Admin</option>
@@ -88,7 +97,7 @@ export default function TeamPage() {
               </label>
               <div style={{display:"flex",gap:"10px",marginTop:"6px"}}>
                 <button type="submit" disabled={creating} style={{flex:1,padding:"13px",fontSize:"15px"}}>
-                  {creating ? "Création…" : "Créer"}
+                  {creating ? "Creation…" : "Creer"}
                 </button>
                 <button type="button" onClick={() => setShowForm(false)} style={{flex:1,padding:"13px",fontSize:"15px",background:"var(--g3)",color:"var(--g6)",boxShadow:"none"}}>
                   Annuler
@@ -100,21 +109,25 @@ export default function TeamPage() {
       )}
 
       {profiles.map(p => (
-        <div key={p.id} className="tc" style={{opacity:p.active?1:.5}}>
-          <div className="tc__name">{p.full_name}</div>
-          <div className="tc__email">{p.email}</div>
-          <select value={p.role} onChange={e => changeRole(p, e.target.value)} style={{marginBottom:"10px"}}>
-            <option value="commercial">Commercial</option>
-            <option value="admin">Admin</option>
-          </select>
-          <div className="tc__stats">
-            <span>{p.clients?.[0]?.count ?? 0} clients</span>
-            <span>{p.devis?.[0]?.count ?? 0} devis</span>
-            <span>{p.factures?.[0]?.count ?? 0} factures</span>
+        <div key={p.id} style={{background:"#fff",borderRadius:"16px",border:"1px solid var(--g4)",boxShadow:"var(--sh)",padding:"16px",marginBottom:"10px",opacity:p.active ? 1 : 0.5}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
+            <div>
+              <div style={{fontSize:"16px",fontWeight:800,color:"var(--g9)"}}>{p.full_name}</div>
+              <div style={{fontSize:"13px",color:"var(--g5)",marginTop:"2px"}}>{p.email}</div>
+            </div>
+            <span style={{background:p.role === "admin" ? "var(--bl)" : "var(--gl)",color:p.role === "admin" ? "var(--b)" : "var(--gm)",fontSize:"11px",padding:"3px 10px",borderRadius:"20px",fontWeight:700}}>
+              {p.role === "admin" ? "Admin" : "Commercial"}
+            </span>
           </div>
-          <button onClick={() => toggleActive(p)} style={{fontSize:"12px",padding:"6px 14px",background:"var(--g3)",color:"var(--g6)",boxShadow:"none",border:"1px solid var(--g4)"}}>
-            {p.active ? "Désactiver" : "Réactiver"}
-          </button>
+          <div style={{display:"flex",gap:"8px",marginTop:"12px"}}>
+            <select value={p.role} onChange={e => changeRole(p, e.target.value)} style={{flex:1,marginBottom:0}}>
+              <option value="commercial">Commercial</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button onClick={() => toggleActive(p)} style={{fontSize:"12px",padding:"7px 14px",background:"var(--g3)",color:"var(--g6)",boxShadow:"none",border:"1px solid var(--g4)"}}>
+              {p.active ? "Desactiver" : "Reactiver"}
+            </button>
+          </div>
         </div>
       ))}
     </div>
