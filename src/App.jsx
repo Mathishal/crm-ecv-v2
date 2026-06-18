@@ -92,7 +92,7 @@ export default function App() {
         {activeTab === "shipping" && <ShippingPage />}
         {activeTab === "team" && isAdmin && <TeamPage />}
         {activeTab === "companies" && isAdmin && <CompaniesPage />}
-        {activeTab === "reports" && <CommissionsReport />}
+        {activeTab === "reports" && <CommissionsReport onOpenFacture={(f) => { setActiveTab("factures"); setView({ mode: "detail", item: f }); }} />}
       </main>
 
       <BottomNav
