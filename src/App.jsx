@@ -67,7 +67,10 @@ export default function App() {
 
         {activeTab === "clients" && (view.mode === "list"
           ? <ClientList onEdit={openForm} onCreateNew={() => openForm(null)} />
-          : <ClientForm existingClient={view.item} onSaved={closeForm} />)}
+          : <ClientForm existingClient={view.item} onSaved={closeForm}
+    onOpenDevis={(d) => { setActiveTab('devis'); setView({ mode: 'detail', item: d }); }}
+    onOpenFacture={(f) => { setActiveTab('factures'); setView({ mode: 'detail', item: f }); }}
+  />)}
 
         {activeTab === "products" && (view.mode === "list"
           ? <ProductList onEdit={openForm} onCreateNew={() => openForm(null)} />
