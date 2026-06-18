@@ -143,11 +143,23 @@ export function computeFactureCommission(lines) {
  *   - vendu à 3000€ → écart = 300 → commission = max(100, 300) = 300€/kg
  *   - vendu à 2500€ → écart = -200 → commission = 0€/kg
  */
-export function computeUnitCommission(unitSalePrice, product) {
-  const basePrice = Number(product?.min_price_per_unit) || 0;
-  const baseCommission = Number(product?.base_commission_per_unit) || 0;
+/**
+ * Calcule la commission unitaire selon la règle :
+ * - Si le commercial a un taux perso (commission_rate_override en %) :
+ *   commission = prix_vente × taux / 100
+ * - Sinon : max(commission_base_produit, écart_prix), 0 si vendu sous le prix de base
+ */
+export function computeUnitCommission(unitSalePrice, product, commercialRateOverride = null) {
   const salePrice = Number(unitSalePrice) || 0;
 
+  // Taux personnalisé du commercial
+  if (commercialRateOverride !== null && commercialRateOverride > 0) {
+    return round2(salePrice * (Number(commercialRateOverride) / 100));
+  }
+
+  // Logique par défaut
+  const basePrice = Number(product?.min_price_per_unit) || 0;
+  const baseCommission = Number(product?.base_commission_per_unit) || 0;
   const gap = salePrice - basePrice;
   if (gap < 0) return 0;
   return round2(Math.max(baseCommission, gap));
