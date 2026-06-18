@@ -30,10 +30,12 @@ export async function generateDocumentPDF({ documentType, document, company, cli
     shippingFee: document.shipping_fee,
   });
 
-  // ---- HEADER vert ----
+  // ---- HEADER ----
+  // Fond vert plein
   pdf.setFillColor(27, 94, 53);
-  pdf.rect(0, 0, W, 46, "F");
+  pdf.rect(0, 0, W, 48, "F");
 
+  // Logo à gauche
   let lw = 0;
   if (company.logo_url) {
     const b64 = await loadImg(company.logo_url);
@@ -43,45 +45,52 @@ export async function generateDocumentPDF({ documentType, document, company, cli
         img.src = b64;
         await new Promise(r => { img.onload=r; img.onerror=r; });
         const ratio = (img.naturalWidth||1) / (img.naturalHeight||1);
-        const lh=26; lw=Math.min(lh*ratio, 44);
+        const lh = 28; lw = Math.min(lh * ratio, 50);
         pdf.addImage(b64, "PNG", ML, 10, lw, lh);
-        lw += 8;
-      } catch(e) { console.warn("logo err",e); lw=0; }
+        lw += 10;
+      } catch(e) { lw = 0; }
     }
   }
 
-  pdf.setTextColor(255,255,255);
-  pdf.setFont("helvetica","bold");
-  pdf.setFontSize(20);
-  pdf.text(company.name, ML+lw, 24);
-  if (company.email) {
-    pdf.setFont("helvetica","normal");
-    pdf.setFontSize(8.5);
-    pdf.setTextColor(190,225,200);
-    pdf.text(company.email, ML+lw, 32);
+  // Si pas de logo : nom société
+  if (lw === 0) {
+    pdf.setTextColor(255,255,255);
+    pdf.setFont("helvetica","bold");
+    pdf.setFontSize(16);
+    pdf.text(company.name, ML, 28);
+    lw = pdf.getTextWidth(company.name) + 10;
   }
 
+  // Type document + numéro à droite — épuré, pas de répétition
   pdf.setTextColor(255,255,255);
   pdf.setFont("helvetica","bold");
-  pdf.setFontSize(28);
-  pdf.text(isDevis?"DEVIS":"FACTURE", W-MR, 26, {align:"right"});
+  pdf.setFontSize(11);
+  pdf.setTextColor(190,230,200);
+  pdf.text(isDevis ? "DEVIS" : "FACTURE", W-MR, 20, {align:"right"});
+
+  pdf.setTextColor(255,255,255);
+  pdf.setFont("helvetica","bold");
+  pdf.setFontSize(22);
+  pdf.text(document.number, W-MR, 32, {align:"right"});
+
   pdf.setFont("helvetica","normal");
-  pdf.setFontSize(10);
-  pdf.setTextColor(190,225,200);
-  pdf.text(document.number, W-MR, 35, {align:"right"});
+  pdf.setFontSize(9);
+  pdf.setTextColor(190,230,200);
+  pdf.text(formatDate(document.issued_at || document.created_at), W-MR, 40, {align:"right"});
 
   // ---- EMETTEUR / DESTINATAIRE ----
-  let y = 58;
+  let y = 60;
   const halfW = (CW/2)-4;
 
+  // Labels
   pdf.setFillColor(244,246,248);
   pdf.roundedRect(ML, y, halfW, 5, 1,1,"F");
   pdf.roundedRect(ML+halfW+8, y, halfW, 5, 1,1,"F");
   pdf.setFont("helvetica","bold");
   pdf.setFontSize(7);
   pdf.setTextColor(107,127,142);
-  pdf.text("ÉMETTEUR", ML+3, y+3.5);
-  pdf.text("DESTINATAIRE", ML+halfW+11, y+3.5);
+  pdf.text("DE", ML+3, y+3.5);
+  pdf.text("A", ML+halfW+11, y+3.5);
   y += 8;
 
   pdf.setFont("helvetica","normal");
@@ -89,10 +98,12 @@ export async function generateDocumentPDF({ documentType, document, company, cli
   pdf.setTextColor(26,35,48);
 
   const emLines = [
+    company.name,
     company.address_line,
     [company.postal_code, company.city].filter(Boolean).join(" "),
     company.country_code==="FR"?"France":company.country_code==="HU"?"Hongrie":company.country_code,
     company.vat_number?"TVA : "+company.vat_number:null,
+    company.email||null,
   ].filter(Boolean);
 
   const clLines = [
@@ -112,20 +123,21 @@ export async function generateDocumentPDF({ documentType, document, company, cli
   });
   y = Math.max(yE,yC)+10;
 
-  // ---- MÉTA ----
+  // ---- BANDE MÉTA ----
   pdf.setFillColor(237,247,240);
-  pdf.roundedRect(ML, y, CW, 16, 3,3,"F");
+  pdf.roundedRect(ML, y, CW, 14, 2,2,"F");
 
   const metas = [
-    ["N°", document.number],
-    ["Date", formatDate(document.issued_at||document.created_at)],
-    isDevis?["Statut",(document.status||"").toUpperCase()]:["Échéance", document.due_at?formatDate(document.due_at):"30 jours"],
-    (!isDevis&&document.paid_at)?["Payée le",formatDate(document.paid_at)]:null,
-  ].filter(Boolean);
+    ["Statut", isDevis ? (document.status||"").toUpperCase() : document.status==="paid" ? "PAYEE" : "EN COURS"],
+    !isDevis && document.paid_at ? ["Payée le", formatDate(document.paid_at)] : null,
+    !isDevis ? ["Echeance", document.due_at ? formatDate(document.due_at) : "30 jours"] : null,
+    ["Commercial", document.owner_name || null],
+  ].filter(Boolean).filter(m => m[1]);
 
-  const mw = CW/metas.length;
+  // Si peu de metas, ajouter padding
+  const mw2 = CW / Math.max(metas.length, 2);
   metas.forEach(([label,val],i) => {
-    const mx = ML+i*mw+4;
+    const mx = ML+i*mw2+4;
     pdf.setFont("helvetica","bold");
     pdf.setFontSize(7);
     pdf.setTextColor(107,127,142);
@@ -133,17 +145,19 @@ export async function generateDocumentPDF({ documentType, document, company, cli
     pdf.setFont("helvetica","bold");
     pdf.setFontSize(9);
     pdf.setTextColor(27,94,53);
-    pdf.text(val||"—", mx, y+12);
+    pdf.text(String(val), mx, y+12);
   });
-  y += 22;
+  y += 20;
 
   // ---- TABLEAU ----
   const rows = lines.map(line => {
     const t = computeLineTotals(line);
+    const discount = Number(line.line_discount) > 0 ? `-${eur(line.line_discount)}` : "";
     return [
       line.description||"—",
       Number(line.quantity).toLocaleString("fr-FR"),
       eur(line.unit_price),
+      discount || "—",
       line.vat_rate+"%",
       eur(t.netHt),
       eur(t.ttc),
@@ -152,19 +166,20 @@ export async function generateDocumentPDF({ documentType, document, company, cli
 
   pdf.autoTable({
     startY: y,
-    head: [["Description","Qté","Prix HT","TVA","Total HT","Total TTC"]],
+    head: [["Description","Qté","Prix HT","Remise","TVA","Total HT","Total TTC"]],
     body: rows,
     margin: { left:ML, right:MR },
     tableWidth: CW,
-    styles: { fontSize:9, cellPadding:{top:5,bottom:5,left:4,right:4}, textColor:[26,35,48], overflow:"linebreak", lineColor:[232,236,240], lineWidth:0.3 },
+    styles: { fontSize:8.5, cellPadding:{top:5,bottom:5,left:3,right:3}, textColor:[26,35,48], overflow:"linebreak", lineColor:[232,236,240], lineWidth:0.3 },
     headStyles: { fillColor:[27,94,53], textColor:[255,255,255], fontStyle:"bold", fontSize:8, halign:"center" },
     columnStyles: {
-      0: { cellWidth:62, halign:"left" },
-      1: { cellWidth:14, halign:"center" },
-      2: { cellWidth:28, halign:"right" },
-      3: { cellWidth:14, halign:"center" },
-      4: { cellWidth:28, halign:"right" },
-      5: { cellWidth:32, halign:"right", fontStyle:"bold" },
+      0: { cellWidth:55, halign:"left" },
+      1: { cellWidth:13, halign:"center" },
+      2: { cellWidth:24, halign:"right" },
+      3: { cellWidth:18, halign:"right" },
+      4: { cellWidth:13, halign:"center" },
+      5: { cellWidth:26, halign:"right" },
+      6: { cellWidth:29, halign:"right", fontStyle:"bold" },
     },
     alternateRowStyles: { fillColor:[248,250,252] },
   });
@@ -182,7 +197,7 @@ export async function generateDocumentPDF({ documentType, document, company, cli
       pdf.setFont("helvetica","bold");
       pdf.setFontSize(13);
     } else {
-      pdf.setTextColor(opts.muted?107:26, opts.muted?127:35, opts.muted?142:48);
+      pdf.setTextColor(opts.muted ? 107 : 26, opts.muted ? 127 : 35, opts.muted ? 142 : 48);
       pdf.setFont("helvetica", opts.bold?"bold":"normal");
       pdf.setFontSize(opts.bold?10:9);
     }
@@ -191,31 +206,32 @@ export async function generateDocumentPDF({ documentType, document, company, cli
     y += opts.final?14:7;
   }
 
-  if (Number(document.global_discount)>0) tRow("Remise globale",`-${eur(document.global_discount)}`);
+  if (Number(document.global_discount)>0) tRow("Remise globale","-"+eur(document.global_discount));
   if (Number(document.shipping_fee)>0) tRow("Frais de livraison",eur(document.shipping_fee));
   tRow("Sous-total HT", eur(totals.subtotalHt));
-  totals.vatBreakdown.forEach(b => tRow(`TVA ${b.rate===0?"0% (autoliquidation)":b.rate+"%"}`,eur(b.vat),{muted:true}));
+  totals.vatBreakdown.forEach(b => tRow("TVA "+(b.rate===0?"0% (autoliquidation)":b.rate+"%")+" / "+eur(b.ht),eur(b.vat),{muted:true}));
   tRow("Total TVA", eur(totals.totalVat), {bold:true});
   y += 3;
   tRow("TOTAL TTC", eur(totals.totalTtc), {final:true});
-  y += 6;
+  y += 8;
 
-  // ---- IBAN ----
-  if (!isDevis && (company.iban||company.bic)) {
+  // ---- IBAN (sur devis ET factures) ----
+  if (company.iban || company.bic) {
     const bw = CW/2-4;
     pdf.setFillColor(244,246,248);
-    pdf.roundedRect(ML, y, bw, 26, 2,2,"F");
+    pdf.roundedRect(ML, y, bw, 28, 2,2,"F");
     pdf.setFont("helvetica","bold");
     pdf.setFontSize(7);
     pdf.setTextColor(107,127,142);
-    pdf.text("COORDONNÉES BANCAIRES", ML+4, y+6);
+    pdf.text("REGLEMENT PAR VIREMENT", ML+4, y+6);
     pdf.setFont("helvetica","normal");
     pdf.setFontSize(8.5);
     pdf.setTextColor(26,35,48);
-    if (company.bank_name) pdf.text("Banque : "+company.bank_name, ML+4, y+12);
-    if (company.iban) pdf.text("IBAN : "+company.iban, ML+4, y+18);
-    if (company.bic) pdf.text("BIC : "+company.bic, ML+4, y+24);
-    y += 32;
+    let yi = y+12;
+    if (company.bank_name) { pdf.text("Banque : "+company.bank_name, ML+4, yi); yi+=5.5; }
+    if (company.iban) { pdf.text("IBAN : "+company.iban, ML+4, yi); yi+=5.5; }
+    if (company.bic) { pdf.text("BIC : "+company.bic, ML+4, yi); }
+    y += 34;
   }
 
   // ---- NOTES ----
@@ -230,6 +246,7 @@ export async function generateDocumentPDF({ documentType, document, company, cli
     pdf.setTextColor(26,35,48);
     const nl = pdf.splitTextToSize(document.notes, CW);
     pdf.text(nl, ML, y);
+    y += nl.length*4.5+6;
   }
 
   // ---- FOOTER ----
@@ -245,8 +262,8 @@ export async function generateDocumentPDF({ documentType, document, company, cli
       const fl = pdf.splitTextToSize(company.legal_footer_text, CW-20);
       pdf.text(fl, ML, 286);
     }
-    pdf.text(`${i} / ${pages}`, W-MR, 291, {align:"right"});
+    pdf.text(i+" / "+pages, W-MR, 291, {align:"right"});
   }
 
-  pdf.save(`${document.number}.pdf`);
+  pdf.save(document.number+".pdf");
 }
