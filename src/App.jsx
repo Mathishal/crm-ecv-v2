@@ -16,6 +16,9 @@ import ShippingPage from "./pages/ShippingPage";
 import TeamPage from "./pages/TeamPage";
 import CompaniesPage from "./pages/CompaniesPage";
 import CommissionsReport from "./components/CommissionsReport";
+import SuppliersPage from "./pages/SuppliersPage";
+import StockReceptionPage from "./pages/StockReceptionPage";
+import StockMovementsPage from "./pages/StockMovementsPage";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -93,6 +96,9 @@ export default function App() {
         {activeTab === "team" && isAdmin && <TeamPage />}
         {activeTab === "companies" && isAdmin && <CompaniesPage />}
         {activeTab === "reports" && <CommissionsReport onOpenFacture={(f) => { setActiveTab("factures"); setView({ mode: "detail", item: f }); }} />}
+        {activeTab === "suppliers" && isAdmin && <SuppliersPage />}
+        {activeTab === "stock-reception" && isAdmin && <StockReceptionPage />}
+        {activeTab === "stock-movements" && <StockMovementsPage onOpenFacture={(f) => { setActiveTab("factures"); setView({ mode: "detail", item: f }); }} />}
       </main>
 
       <BottomNav

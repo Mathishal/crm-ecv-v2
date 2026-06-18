@@ -10,6 +10,9 @@ const ALL_TABS = [
   { key: "reports", label: "Rapports", icon: "📈" },
   { key: "team", label: "Commerciaux", icon: "👤", adminOnly: true },
   { key: "companies", label: "Sociétés", icon: "🏢", adminOnly: true },
+  { key: "suppliers", label: "Fournisseurs", icon: "🏭", adminOnly: true },
+  { key: "stock-reception", label: "Réception stock", icon: "📥", adminOnly: true },
+  { key: "stock-movements", label: "Mouvements stock", icon: "📊" },
 ];
 
 export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggle, menuOpen }) {
