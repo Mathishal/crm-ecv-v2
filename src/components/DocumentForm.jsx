@@ -116,7 +116,7 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
     const prefix = type === "devis" ? "DEV" : "FAC";
     const table = type === "devis" ? "devis" : "factures";
     const year = new Date().getFullYear();
-    const { data } = await supabase.from(table).select("number").like("number", `${prefix}-${year}-%`).order("number", { ascending: false }).limit(1);
+    const { data } = await supabase.from(table).select("number").like("number", prefix+"-"+year+"-%").order("number", { ascending: false }).limit(1);
     const lastSeq = data?.[0]?.number ? parseInt(data[0].number.split("-")[2], 10) : 0;
     return getNextDocumentNumber(prefix, year, lastSeq);
   }
