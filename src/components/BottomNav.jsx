@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const ALL_TABS = [
@@ -14,10 +13,7 @@ const ALL_TABS = [
 ];
 
 export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggle, menuOpen }) {
-  const tabs = ALL_TABS.filter(t => {
-    if (!t.adminOnly) return true;
-    return isAdmin === true;
-  });
+  const tabs = ALL_TABS.filter(t => !t.adminOnly || isAdmin);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -31,10 +27,7 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
   return (
     <>
       {menuOpen && (
-        <div
-          onClick={() => onMenuToggle(false)}
-          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.35)",zIndex:40,backdropFilter:"blur(2px)"}}
-        />
+        <div onClick={() => onMenuToggle(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.35)",zIndex:40,backdropFilter:"blur(2px)"}} />
       )}
 
       <div style={{
@@ -49,7 +42,7 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
           <div style={{background:"#22723a",color:"#fff",fontWeight:800,borderRadius:"8px",padding:"6px 9px",fontSize:"12px"}}>EC</div>
           <div style={{flex:1}}>
             <div style={{fontSize:"15px",fontWeight:700,color:"#1a2330"}}>CRM El Camino</div>
-            <div style={{fontSize:"12px",color:"#94a3b8"}}>Menu principal</div>
+            <div style={{fontSize:"12px",color:"#94a3b8"}}>{isAdmin ? "Administrateur" : "Commercial"}</div>
           </div>
           <button onClick={() => onMenuToggle(false)} style={{background:"none",color:"#94a3b8",boxShadow:"none",padding:"4px",fontSize:"20px",lineHeight:1}}>x</button>
         </div>

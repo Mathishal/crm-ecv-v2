@@ -1,4 +1,3 @@
-// src/hooks/useCurrentProfile.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -11,10 +10,7 @@ export function useCurrentProfile() {
     async function load() {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
-        if (mounted) {
-          setProfile(null);
-          setLoading(false);
-        }
+        if (mounted) { setProfile(null); setLoading(false); }
         return;
       }
       const { data, error } = await supabase
@@ -28,10 +24,9 @@ export function useCurrentProfile() {
       }
     }
     load();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
-  return { profile, loading, isAdmin: profile?.role === "admin" };
+  const isAdmin = loading ? false : profile?.role === "admin";
+  return { profile, loading, isAdmin };
 }
