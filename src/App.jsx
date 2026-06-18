@@ -98,7 +98,7 @@ export default function App() {
         {activeTab === "reports" && <CommissionsReport onOpenFacture={(f) => { setActiveTab("factures"); setView({ mode: "detail", item: f }); }} />}
         {activeTab === "suppliers" && isAdmin && <SuppliersPage />}
         {activeTab === "stock-reception" && isAdmin && <StockReceptionPage />}
-        {activeTab === "stock-movements" && <StockMovementsPage onOpenFacture={(f) => { setActiveTab("factures"); setView({ mode: "detail", item: f }); }} />}
+        {activeTab === "stock-movements" && <StockMovementsPage onOpenDevis={(d) => { setActiveTab("devis"); setView({ mode: "detail", item: d }); }} onOpenFacture={(f) => { setActiveTab("factures"); setView({ mode: "detail", item: f }); }} />}
       </main>
 
       <BottomNav

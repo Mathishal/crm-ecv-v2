@@ -15,7 +15,7 @@ const ALL_TABS = [
   { key: "stock-movements", label: "Mouvements stock", icon: "📊" },
 ];
 
-export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggle, menuOpen }) {
+export default function BottomNav({ activeTab, onTabChange, isAdmin, profile, onMenuToggle, menuOpen }) {
   const tabs = ALL_TABS.filter(t => !t.adminOnly || isAdmin);
 
   async function handleLogout() {
@@ -44,7 +44,7 @@ export default function BottomNav({ activeTab, onTabChange, isAdmin, onMenuToggl
         <div style={{padding:"20px 20px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",gap:"12px"}}>
           <div style={{background:"#22723a",color:"#fff",fontWeight:800,borderRadius:"8px",padding:"6px 9px",fontSize:"12px"}}>EC</div>
           <div style={{flex:1}}>
-            <div style={{fontSize:"15px",fontWeight:700,color:"#1a2330"}}>CRM El Camino</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"#1a2330"}}>{profile?.full_name || "CRM El Camino"}</div>
             <div style={{fontSize:"12px",color:"#94a3b8"}}>{isAdmin ? "Administrateur" : "Commercial"}</div>
           </div>
           <button onClick={() => onMenuToggle(false)} style={{background:"none",color:"#94a3b8",boxShadow:"none",padding:"4px",fontSize:"20px",lineHeight:1}}>x</button>
