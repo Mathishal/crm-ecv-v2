@@ -1,16 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { computeLineTotals, resolveLineVatRate, getAvailableStock, computeUnitCommission } from "../lib/billingEngine";
 import { formatEUR } from "../lib/format";
 
-export default function DocumentLineRow({ line, products, company, onChange, onRemove, index, isOpen, onToggle }) {
+export default function DocumentLineRow({ line, products, company, onChange, onRemove, index, isOpen, onToggle, commercialRateOverride }) {
   const totals = useMemo(() => computeLineTotals(line), [line]);
-
   const selectedProduct = useMemo(() => products.find(p => p.id === line.product_id) || null, [line.product_id, products]);
 
   const liveCommission = useMemo(() => {
-    if (!selectedProduct) return Number(line.unit_commission) || 0;
-    return computeUnitCommission(line.unit_price, selectedProduct);
-  }, [selectedProduct, line.unit_price, line.unit_commission]);
+    if (!selectedProduct && !commercialRateOverride) return Number(line.unit_commission) || 0;
+    return computeUnitCommission(line.unit_price, selectedProduct, commercialRateOverride);
+  }, [selectedProduct, line.unit_price, line.unit_commission, commercialRateOverride]);
 
   const stockWarn = useMemo(() => {
     if (!selectedProduct) return null;
@@ -20,20 +19,22 @@ export default function DocumentLineRow({ line, products, company, onChange, onR
 
   function handleProductSelect(productId) {
     const product = products.find(p => p.id === productId);
-    if (!product) { onChange({ ...line, product_id: null, description: "", unit_price: 0, vat_rate: 20, unit_commission: 0 }); return; }
+    if (!product) {
+      onChange({ ...line, product_id: null, description: "", unit_price: 0, vat_rate: 20, unit_commission: 0 });
+      return;
+    }
     const vatRate = resolveLineVatRate(company, product);
-    const comm = computeUnitCommission(product.min_price_per_unit, product);
+    const comm = computeUnitCommission(product.min_price_per_unit, product, commercialRateOverride);
     onChange({ ...line, product_id: product.id, description: product.name, unit_price: product.min_price_per_unit, vat_rate: vatRate, unit_commission: comm });
   }
 
   function handlePriceChange(newPrice) {
-    const comm = selectedProduct ? computeUnitCommission(newPrice, selectedProduct) : line.unit_commission;
+    const comm = computeUnitCommission(newPrice, selectedProduct, commercialRateOverride);
     onChange({ ...line, unit_price: newPrice, unit_commission: comm });
   }
 
   return (
     <div style={{border:"1px solid var(--g4)",borderRadius:"12px",marginBottom:"8px",overflow:"hidden",background:"#fff"}}>
-      {/* Ligne fermée — toujours visible */}
       <div
         onClick={onToggle}
         style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",cursor:"pointer",background:isOpen?"var(--gl)":"#fff",transition:"background .15s"}}
@@ -43,21 +44,20 @@ export default function DocumentLineRow({ line, products, company, onChange, onR
             {line.description || <span style={{color:"var(--g5)"}}>Nouvelle ligne</span>}
           </div>
           <div style={{fontSize:"12px",color:"var(--g5)",marginTop:"2px"}}>
-            {Number(line.quantity).toLocaleString("fr-FR")} × {formatEUR(line.unit_price)} · TVA {line.vat_rate}%
+            {Number(line.quantity).toLocaleString("fr-FR")} x {formatEUR(line.unit_price)} · TVA {line.vat_rate}%
           </div>
         </div>
         <div style={{textAlign:"right",marginLeft:"12px",flexShrink:0}}>
           <div style={{fontSize:"16px",fontWeight:900,color:"var(--g9)"}}>{formatEUR(totals.ttc)}</div>
           <div style={{fontSize:"11px",color:"var(--g5)"}}>{formatEUR(totals.netHt)} HT</div>
         </div>
-        <div style={{marginLeft:"10px",color:"var(--g5)",fontSize:"14px"}}>{isOpen?"▲":"▼"}</div>
+        <div style={{marginLeft:"10px",color:"var(--g5)",fontSize:"14px"}}>{isOpen ? "▲" : "▼"}</div>
       </div>
 
-      {/* Détails — visible seulement si ouvert */}
       {isOpen && (
         <div style={{padding:"14px",borderTop:"1px solid var(--g4)",background:"var(--g2)"}}>
-          <label style={{marginBottom:"2px"}}>Produit
-            <select value={line.product_id||""} onChange={e => handleProductSelect(e.target.value||null)} style={{marginBottom:"12px"}}>
+          <label>Produit
+            <select value={line.product_id || ""} onChange={e => handleProductSelect(e.target.value || null)} style={{marginBottom:"12px"}}>
               <option value="">— Produit personnalisé —</option>
               {products.map(p => {
                 const dispo = getAvailableStock(p);
@@ -87,14 +87,17 @@ export default function DocumentLineRow({ line, products, company, onChange, onR
             </label>
           </div>
 
-          {selectedProduct && (
+          {(selectedProduct || commercialRateOverride) && (
             <div style={{background:"var(--pl)",borderRadius:"8px",padding:"8px 12px",fontSize:"12px",color:"var(--p)",fontWeight:600,marginBottom:"12px"}}>
-              🔒 Commission : {formatEUR(liveCommission)}/{selectedProduct.sale_unit} × {Number(line.quantity)||0} = {formatEUR(liveCommission * (Number(line.quantity)||0))}
+              {commercialRateOverride
+                ? `Commission ${commercialRateOverride}% : ${formatEUR(liveCommission)}/${selectedProduct?.sale_unit || "unité"} x ${Number(line.quantity)||0} = ${formatEUR(liveCommission * (Number(line.quantity)||0))}`
+                : `Commission : ${formatEUR(liveCommission)}/${selectedProduct.sale_unit} x ${Number(line.quantity)||0} = ${formatEUR(liveCommission * (Number(line.quantity)||0))}`
+              }
             </div>
           )}
 
           <button type="button" onClick={onRemove} style={{width:"100%",background:"var(--rl)",color:"var(--r)",boxShadow:"none",fontSize:"13px",padding:"9px"}}>
-            🗑 Supprimer cette ligne
+            Supprimer cette ligne
           </button>
         </div>
       )}
