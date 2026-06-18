@@ -3,13 +3,19 @@ import { supabase } from "../lib/supabaseClient";
 import { useCurrentProfile } from "../hooks/useCurrentProfile";
 import CompanySelector from "./CompanySelector";
 import DocumentLineRow from "./DocumentLineRow";
-import { computeDocumentTotals, getNextDocumentNumber, computeFactureCommission } from "../lib/billingEngine";
+import { computeDocumentTotals, computeFactureCommission } from "../lib/billingEngine";
 import { formatEUR } from "../lib/format";
 
-const EMPTY_LINE = () => ({ id: crypto.randomUUID(), product_id: null, description: "", quantity: 1, unit_price: 0, vat_rate: 20, line_discount: 0, unit_commission: 0 });
+const EMPTY_LINE = () => ({
+  id: crypto.randomUUID(),
+  product_id: null, description: "", quantity: 1,
+  unit_price: 0, vat_rate: 20, line_discount: 0, unit_commission: 0,
+});
 
 export default function DocumentForm({ documentType = "devis", existingDocument = null, onSaved }) {
   const { profile, isAdmin } = useCurrentProfile();
+  const commercialRate = profile?.commission_rate_override ?? null;
+
   const [clients, setClients] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [products, setProducts] = useState([]);
@@ -20,7 +26,11 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
   const [globalDiscount, setGlobalDiscount] = useState(existingDocument?.global_discount || 0);
   const [shippingFee, setShippingFee] = useState(existingDocument?.shipping_fee || 0);
   const [notes, setNotes] = useState(existingDocument?.notes || "");
-  const [lines, setLines] = useState(existingDocument?.lines?.length ? existingDocument.lines.map(l => ({...l, id: l.id || crypto.randomUUID()})) : [EMPTY_LINE()]);
+  const [lines, setLines] = useState(
+    existingDocument?.lines?.length
+      ? existingDocument.lines.map(l => ({ ...l, id: l.id || crypto.randomUUID() }))
+      : [EMPTY_LINE()]
+  );
   const [vatRuleOverridden, setVatRuleOverridden] = useState(existingDocument?.vat_rule_overridden || false);
   const [openLineIndex, setOpenLineIndex] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -67,8 +77,8 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
   async function handleSubmit(e) {
     e.preventDefault();
     setErrorMsg(null);
-    if (!clientId) return setErrorMsg("Sélectionnez un client.");
-    if (!companyId) return setErrorMsg("Sélectionnez une société émettrice.");
+    if (!clientId) return setErrorMsg("Selectionnez un client.");
+    if (!companyId) return setErrorMsg("Selectionnez une societe emettrice.");
     if (lines.length === 0) return setErrorMsg("Ajoutez au moins une ligne.");
     setSaving(true);
     try {
@@ -85,7 +95,6 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
         payload.client_intra_vat_snapshot = selectedClient?.intra_vat_number || null;
         payload.client_intra_vat_verified_snapshot = selectedClient?.intra_vat_verified || false;
       }
-
       let documentId = existingDocument?.id;
       if (documentId) {
         const { error } = await supabase.from(table).update(payload).eq("id", documentId);
@@ -97,7 +106,6 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
         if (error) throw error;
         documentId = data.id;
       }
-
       const linesToInsert = lines.map((l, idx) => ({
         [fkColumn]: documentId, product_id: l.product_id, description: l.description,
         quantity: Number(l.quantity), unit_price: Number(l.unit_price),
@@ -115,13 +123,18 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
   async function generateNextNumber(type) {
     const prefix = type === "devis" ? "DEV" : "FAC";
     const table = type === "devis" ? "devis" : "factures";
-    const year = new Date().getFullYear();
-    const { data } = await supabase.from(table).select("number").like("number", prefix+"-"+year+"-%").order("number", { ascending: false }).limit(1);
-    const lastSeq = data?.[0]?.number ? parseInt(data[0].number.split("-")[2], 10) : 0;
-    return getNextDocumentNumber(prefix, year, lastSeq);
+    const { data, error } = await supabase.rpc("next_document_number", { prefix, tbl: table });
+    if (error || !data) {
+      const year = new Date().getFullYear();
+      const { data: rows } = await supabase.from(table).select("number").like("number", prefix + "-" + year + "-%").order("number", { ascending: false }).limit(1);
+      const last = rows?.[0]?.number;
+      const lastSeq = last ? parseInt(last.split("-")[2], 10) : 0;
+      return prefix + "-" + year + "-" + String(lastSeq + 1).padStart(3, "0");
+    }
+    return data;
   }
 
-  if (loading) return <p style={{textAlign:"center",padding:"40px",color:"var(--g5)"}}>Chargement…</p>;
+  if (loading) return <p style={{textAlign:"center",padding:"40px",color:"var(--g5)"}}>Chargement...</p>;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -131,12 +144,19 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
 
       {errorMsg && <div style={{background:"var(--rl)",color:"var(--r)",padding:"10px 14px",borderRadius:"8px",marginBottom:"14px",fontSize:"13px",fontWeight:600}}>{errorMsg}</div>}
 
-      {/* Client */}
+      {/* Commission personnalisee */}
+      {commercialRate !== null && (
+        <div style={{background:"var(--pl)",color:"var(--p)",borderRadius:"10px",padding:"10px 14px",marginBottom:"14px",fontSize:"13px",fontWeight:700}}>
+          Votre taux de commission : {commercialRate}% sur le prix de vente
+        </div>
+      )}
+
+      {/* Client + societe */}
       <div style={{background:"#fff",borderRadius:"16px",border:"1px solid var(--g4)",boxShadow:"var(--sh)",padding:"16px",marginBottom:"12px"}}>
         <label>Client *
           <select value={clientId} onChange={e => setClientId(e.target.value)}>
-            <option value="">Sélectionner un client</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company_name ? ` — ${c.company_name}` : ""}</option>)}
+            <option value="">Selectionner un client</option>
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company_name ? " - " + c.company_name : ""}</option>)}
           </select>
         </label>
         <CompanySelector
@@ -148,8 +168,8 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
         <label>Statut
           <select value={status} onChange={e => setStatus(e.target.value)}>
             {documentType === "devis"
-              ? [["draft","Brouillon"],["sent","Envoyé"],["accepted","Accepté"],["refused","Refusé"],["expired","Expiré"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)
-              : [["draft","Brouillon"],["sent","Envoyée"],["paid","Payée"],["overdue","En retard"],["cancelled","Annulée"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)
+              ? [["draft","Brouillon"],["sent","Envoye"],["accepted","Accepte"],["refused","Refuse"],["expired","Expire"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)
+              : [["draft","Brouillon"],["sent","Envoyee"],["paid","Payee"],["overdue","En retard"],["cancelled","Annulee"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)
             }
           </select>
         </label>
@@ -160,12 +180,13 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
         <div style={{fontSize:"12px",fontWeight:700,color:"var(--g5)",textTransform:"uppercase",letterSpacing:".4px",marginBottom:"10px"}}>Produits / Lignes</div>
         {lines.map((line, idx) => (
           <DocumentLineRow
-            key={line.id} line={line} products={products} index={idx}
+            key={line.id || idx} line={line} products={products} index={idx}
             company={selectedCompany || { requires_client_intra_vat: false }}
             onChange={updated => updateLine(idx, updated)}
             onRemove={() => removeLine(idx)}
             isOpen={openLineIndex === idx}
             onToggle={() => setOpenLineIndex(openLineIndex === idx ? null : idx)}
+            commercialRateOverride={commercialRate}
           />
         ))}
         <button type="button" onClick={addLine} style={{width:"100%",background:"none",color:"var(--gm)",border:"2px dashed var(--gm)",boxShadow:"none",padding:"12px",fontSize:"14px",fontWeight:700,borderRadius:"12px"}}>
@@ -179,7 +200,7 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
           <label>Remise globale (€)<input type="number" step="0.01" min="0" value={globalDiscount} onChange={e => setGlobalDiscount(e.target.value)} /></label>
           <label>Livraison (€)<input type="number" step="0.01" min="0" value={shippingFee} onChange={e => setShippingFee(e.target.value)} /></label>
         </div>
-        <label>Notes<textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes pour le client…" rows={3} style={{marginBottom:0}} /></label>
+        <label>Notes<textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes pour le client..." rows={3} style={{marginBottom:0}} /></label>
       </div>
 
       {/* Totaux */}
@@ -200,13 +221,14 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
         </div>
         {totalCommission > 0 && (
           <div style={{background:"rgba(255,255,255,.08)",borderRadius:"8px",padding:"8px 12px",fontSize:"12px",color:"rgba(255,255,255,.6)"}}>
-            🔒 Commission interne : <strong style={{color:"#c4b5fd"}}>{formatEUR(totalCommission)}</strong>
+            Commission interne : <strong style={{color:"#c4b5fd"}}>{formatEUR(totalCommission)}</strong>
+            {commercialRate !== null && <span style={{marginLeft:"6px",fontSize:"11px"}}>({commercialRate}% sur vente)</span>}
           </div>
         )}
       </div>
 
       <button type="submit" disabled={saving} style={{width:"100%",padding:"14px",fontSize:"16px",fontWeight:800,borderRadius:"12px"}}>
-        {saving ? "Enregistrement…" : existingDocument ? `Enregistrer le ${documentType}` : `Créer le ${documentType}`}
+        {saving ? "Enregistrement..." : existingDocument ? "Enregistrer le " + documentType : "Creer le " + documentType}
       </button>
     </form>
   );
