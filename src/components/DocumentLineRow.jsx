@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { computeLineTotals, resolveLineVatRate, getAvailableStock, computeUnitCommission } from "../lib/billingEngine";
+import SearchSelect from "./SearchSelect";
 import { formatEUR } from "../lib/format";
 
 export default function DocumentLineRow({ line, products, company, onChange, onRemove, index, isOpen, onToggle, commercialRateOverride }) {
@@ -56,15 +57,19 @@ export default function DocumentLineRow({ line, products, company, onChange, onR
 
       {isOpen && (
         <div style={{padding:"14px",borderTop:"1px solid var(--g4)",background:"var(--g2)"}}>
-          <label>Produit
-            <select value={line.product_id || ""} onChange={e => handleProductSelect(e.target.value || null)} style={{marginBottom:"12px"}}>
-              <option value="">— Produit personnalisé —</option>
-              {products.map(p => {
+          <label style={{marginBottom:"6px"}}>Produit</label>
+          <SearchSelect
+            value={line.product_id || ""}
+            onChange={val => handleProductSelect(val || null)}
+            placeholder="Rechercher un produit..."
+            options={[
+              { value: "", label: "— Produit personnalisé —", sublabel: "" },
+              ...products.map(p => {
                 const dispo = getAvailableStock(p);
-                return <option key={p.id} value={p.id}>{p.name} — {formatEUR(p.min_price_per_unit)}/{p.sale_unit} · dispo {dispo.toFixed(2)} {p.sale_unit}</option>;
-              })}
-            </select>
-          </label>
+                return { value: p.id, label: p.name, sublabel: formatEUR(p.min_price_per_unit) + "/" + p.sale_unit + " · dispo " + dispo.toFixed(2) + " " + p.sale_unit };
+              })
+            ]}
+          />
 
           <label>Description
             <input type="text" value={line.description} onChange={e => onChange({...line, description:e.target.value})} placeholder="Description de la ligne" />

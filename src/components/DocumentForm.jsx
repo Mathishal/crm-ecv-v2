@@ -4,6 +4,7 @@ import { useCurrentProfile } from "../hooks/useCurrentProfile";
 import CompanySelector from "./CompanySelector";
 import DocumentLineRow from "./DocumentLineRow";
 import { computeDocumentTotals, computeFactureCommission } from "../lib/billingEngine";
+import SearchSelect from "./SearchSelect";
 import { formatEUR } from "../lib/format";
 
 const EMPTY_LINE = () => ({
@@ -154,12 +155,13 @@ export default function DocumentForm({ documentType = "devis", existingDocument 
 
       {/* Client + societe */}
       <div style={{background:"#fff",borderRadius:"16px",border:"1px solid var(--g4)",boxShadow:"var(--sh)",padding:"16px",marginBottom:"12px"}}>
-        <label>Client *
-          <select value={clientId} onChange={e => setClientId(e.target.value)}>
-            <option value="">Selectionner un client</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company_name ? " - " + c.company_name : ""}</option>)}
-          </select>
-        </label>
+        <label style={{marginBottom:"6px"}}>Client *</label>
+        <SearchSelect
+          value={clientId}
+          onChange={setClientId}
+          placeholder="Rechercher un client..."
+          options={clients.map(c => ({ value: c.id, label: c.name, sublabel: c.company_name || c.email || "" }))}
+        />
         <CompanySelector
           companies={companies} client={selectedClient}
           selectedCompanyId={companyId} onSelect={handleCompanyChange}
